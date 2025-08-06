@@ -1,0 +1,694 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Newsletter Subscriptions collection
+    match /newsletterSubscriptions/{subscriptionId} {
+      // Allow public read access to check for existing subscriptions
+      allow read: if true;
+      
+      // Allow anyone to create a subscription with valid email
+      allow create: if request.resource.data is map &&
+                   request.resource.data.keys().hasAll(['email', 'isActive', 'createdAt']) &&
+                   request.resource.data.email is string && 
+                   request.resource.data.email.matches('^[^@]+@[^@]+\\.[^@]+$') &&
+                   request.resource.data.isActive == true &&
+                   request.resource.data.createdAt is timestamp &&
+                   (!exists(/databases/$(database)/documents/newsletterSubscriptions/$(subscriptionId)) || 
+                    resource.data.email == request.resource.data.email);
+      
+      // Only allow admins to update or delete
+      allow update, delete: if isAdmin();
+      
+      // Allow users to update their own subscription status
+      allow update: if (request.auth != null && resource.data.email == request.auth.token.email) && 
+                   request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']) &&
+                   request.resource.data.isActive is bool;
+    }
+
+    // User Carts collection
+    match /userCarts/{userId} {
+      // Allow users to read and write their own cart
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow admins to read any cart
+      allow read: if isAdmin();
+      
+      // Allow creation of cart document when adding first item
+      allow create: if isAuthenticated() && 
+                   request.auth.uid == userId && 
+                   request.resource.data is map &&
+                   request.resource.data.updatedAt is timestamp;
+      
+      // Allow updates to cart items
+      allow update: if isAuthenticated() && 
+                   request.auth.uid == userId && 
+                   request.resource.data is map &&
+                   request.resource.data.updatedAt is timestamp;
+      
+      // Subcollections - same rules as parent
+      match /{document=**} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+        allow read: if isAdmin();
+      }
+    }
+
+    // User Wishlists collection
+    match /userWishlists/{userId} {
+      // Allow users to read and write their own wishlist
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow admins to read any wishlist
+      allow read: if isAdmin();
+      
+      // Allow creation of wishlist document when adding first item
+      allow create: if isAuthenticated() && 
+                   request.auth.uid == userId && 
+                   request.resource.data is map &&
+                   request.resource.data.updatedAt is string;
+      
+      // Allow updates to wishlist items
+      allow update: if isAuthenticated() && 
+                   request.auth.uid == userId && 
+                   request.resource.data is map &&
+                   request.resource.data.updatedAt is string;
+      
+      // Subcollections - same rules as parent
+      match /{document=**} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+        allow read: if isAdmin();
+      }
+    }
+
+    // Coupons collection
+    match /coupons/{couponId} {
+      // Allow public read access to check coupon validity
+      allow get: if true;
+      allow list: if true;
+      
+      // Only admins can create or delete coupons
+      allow create, delete: if isAdmin();
+      
+      // Additional validation for coupon data
+      allow create: if isAdmin() &&
+                   request.resource.data is map &&
+                   request.resource.data.keys().hasAll(['code', 'type', 'isActive']) &&
+                   request.resource.data.code is string &&
+                   request.resource.data.type is string &&
+                   (request.resource.data.value == null || 
+                    (request.resource.data.value is number && 
+                     (request.resource.data.type != 'percentage' || request.resource.data.value <= 100))) &&
+                   request.resource.data.isActive is bool;
+      
+      // Allow updating timesUsed and lastUsedAt by any authenticated user
+      allow update: if (
+        // Allow updates to timesUsed and lastUsedAt by any authenticated user
+        isAuthenticated() &&
+        (
+          // Allow updating just timesUsed (increment by 1)
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['timesUsed', 'updatedAt']) &&
+          request.resource.data.timesUsed is number &&
+          request.resource.data.timesUsed == resource.data.timesUsed + 1) ||
+          
+          // Or updating just lastUsedAt
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastUsedAt', 'updatedAt']) &&
+          request.resource.data.lastUsedAt is string) ||
+          
+          // Or updating both timesUsed (increment by 1) and lastUsedAt
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['timesUsed', 'lastUsedAt', 'updatedAt']) &&
+          request.resource.data.timesUsed is number &&
+          request.resource.data.timesUsed == resource.data.timesUsed + 1 &&
+          request.resource.data.lastUsedAt is string) ||
+          
+          // Or updating isActive
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive', 'updatedAt']) &&
+          request.resource.data.isActive is bool) ||
+          
+          // Allow updating timesUsed without strict increment for batch operations
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['timesUsed', 'updatedAt']) &&
+          request.resource.data.timesUsed is number &&
+          request.resource.data.timesUsed >= resource.data.timesUsed)
+        )
+      ) || (
+        // Admins can update any field
+        isAdmin()
+      );
+    }
+    
+    // Coupon usage tracking
+    match /couponUsage/{couponUsageId} {
+      // Allow users to read their own usage
+      allow read: if isAuthenticated() && 
+                 (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Allow creating/updating usage records
+      allow create, update: if isAuthenticated() && 
+                           request.resource.data.userId == request.auth.uid &&
+                           request.resource.data.couponCode is string &&
+                           request.resource.data.count is number &&
+                           request.resource.data.lastUsedAt is string;
+      
+      // Allow admins full access
+      allow read, write: if isAdmin();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own document
+      allow get: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      // Only admins can list all users
+      allow list: if isAdmin();
+      // Users can create their own document
+      allow create: if isAuthenticated() && (
+        // Allow creation if it's their own document
+        isOwner(userId) && 
+        // Ensure required fields are present
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.role in ['user', 'admin']
+      );
+      // Users can update their own profile
+      allow update: if isAuthenticated() && (
+        // Allow updating own profile
+        (isOwner(userId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasAny([
+           'displayName', 'phoneNumber', 'timezone', 'notifications', 'photoURL'
+         ])) ||
+        // Allow updating lastLogin
+        (isOwner(userId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin'])) ||
+        // Allow admins to update any user
+        isAdmin()
+      );
+      // Admins can manage all users
+      allow read, write: if isAdmin();
+      
+      // User subcollections
+      match /{document=**} {
+        // Allow users to read/write their own subcollections
+        allow read, write: if isOwner(userId);
+        // Allow admins to manage all user subcollections
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Allow users to read their own orders
+      allow read: if isAuthenticated() && 
+                 (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Allow users to create their own orders
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
+      
+      // Allow status updates from server code (using Firebase Admin SDK)
+      allow update: if (
+        // Either admin is making the update
+        isAdmin() ||
+        // Or it's a server-side update (no auth) and only status/updatedAt are being updated
+        (request.auth == null && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.status in ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'refunded', 'returned', 'failed'])
+      );
+      
+      // Only admins can delete or perform other write operations
+      allow delete: if isAdmin();
+    }
+    
+    // User orders subcollection
+    match /users/{userId}/orders/{orderId} {
+      // Allow users to read their own orders
+      allow read: if isAuthenticated() && 
+                 (userId == request.auth.uid || isAdmin());
+      
+      // Allow orders to be created in the user's subcollection
+      allow create: if isAuthenticated() && 
+                   userId == request.auth.uid &&
+                   request.resource.data.userId == userId;
+      
+      // Allow status updates from server code (using Firebase Admin SDK)
+      allow update: if (
+        // Either admin is making the update
+        isAdmin() ||
+        // Or it's a server-side update (no auth) and only status/updatedAt are being updated
+        (request.auth == null && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.status in ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'refunded', 'returned', 'failed'])
+      );
+      
+      // Only admins can delete or perform other write operations
+      allow delete: if isAdmin();
+    }
+
+    // Products collection
+    match /products/{productId} {
+      // Allow public read access to products
+      allow read: if true;
+      // Only admins can create, update, or delete products
+      allow create, update, delete: if isAdmin();
+      
+      // Validate product data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['name', 'description', 'price', 'category', 'inStock', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.description is string &&
+        request.resource.data.price is number &&
+        request.resource.data.category is string &&
+        request.resource.data.inStock is bool &&
+        request.resource.data.createdAt is timestamp;
+    }
+    
+    // Settings collection
+    match /settings/{documentId} {
+      // Allow public read access to settings (needed for maintenance page)
+      allow read: if true;
+      
+      // Only admins can write to settings
+      allow write: if isAdmin() && 
+        (request.resource.data.keys().hasAny(['enabled', 'message', 'estimatedCompletion', 'maintenanceMode']) &&
+        (request.resource.data.enabled == null || request.resource.data.enabled is bool) &&
+        (request.resource.data.message == null || request.resource.data.message is string) &&
+        (request.resource.data.estimatedCompletion == null || request.resource.data.estimatedCompletion is string) &&
+        (request.resource.data.maintenanceMode == null || request.resource.data.maintenanceMode is bool));
+      
+      // Special case for maintenance document - allow read for all
+      match /maintenance {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+    
+    // Categories collection
+    match /categories/{categoryId} {
+      // Anyone can read categories
+      allow read: if true;
+      // Only admins can create/update/delete categories
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Content collection
+    match /content/{documentId} {
+      // Allow read access to authenticated users
+      allow read: if isAuthenticated();
+      // Only admins can write to content
+      allow write: if isAdmin();
+    }
+    
+    // Orders collection
+    match /orders/{orderId} {
+      // Users can read their own orders, admins can read all
+      allow get: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Users can list their own orders, admins can list all
+      allow list: if isAuthenticated() && (
+        isAdmin() || 
+        (request.query.limit != null && request.query.limit <= 50) // Prevent large queries
+      );
+      // Users can create orders with their own userId
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status in ['pending', 'processing'];
+      // Only admins can update/delete orders
+      allow update, delete: if isAdmin();
+    }
+
+    // Allow users to manage their own cart (legacy path)
+    match /carts/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // User Carts collection (new path)
+    match /userCarts/{userId} {
+      // Users can read and write to their own cart
+      allow read, write: if isOwner(userId);
+      
+      // Validate cart data
+      allow create: if isOwner(userId) && 
+        request.resource.data.keys().hasAll(['items', 'updatedAt']) &&
+        request.resource.data.items is list;
+        
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['items', 'updatedAt']) &&
+        request.resource.data.items is list;
+    }
+    
+    // Categories collection
+    match /categories/{categoryId} {
+      // Allow public read access to categories
+      allow read: if true;
+      // Only admins can create, update, or delete categories
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Slides collection (legacy - for backward compatibility)
+    match /slides/{slideId} {
+      // Allow public read access to slides
+      allow read: if true;
+      // Only admins can create/update/delete slides
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Slider Images collection
+    match /sliderImages/{slideId} {
+      // Allow public read access to slider images
+      allow read: if true;
+      // Only admins can create/update/delete slider images
+      allow create, update, delete: if isAdmin();
+      
+      // Validate slide data
+      allow create: if isAdmin() && 
+        request.resource.data.keys().hasAll(['imageUrl', 'order']) &&
+        request.resource.data.imageUrl is string &&
+        request.resource.data.imageUrl.matches('^https?://.+$') &&
+        request.resource.data.order is number;
+    }
+    
+    // Out of Stock Waitlist collection
+    match /outOfStockWaitlist/{waitlistId} {
+      // Allow admins to read and manage all waitlist entries
+      allow read, write: if isAdmin();
+      
+      // Allow authenticated users to create their own waitlist entries
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid &&
+                   request.resource.data is map &&
+                   request.resource.data.keys().hasAll(['productId', 'productName', 'customerName', 'customerEmail', 'customerPhone', 'status', 'createdAt', 'updatedAt', 'notified', 'userId']) &&
+                   request.resource.data.status == 'pending' &&
+                   request.resource.data.notified == false;
+    }
+
+    // Handcrafted Images collection
+    match /handcraftedImages/{document=**} {
+      // Anyone can read the images
+      allow read: if true;
+      // Only admins can create, update or delete
+      allow create, update, delete: if isAdmin();
+      
+      // Validate data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['imageUrl', 'order', 'createdAt']) &&
+        request.resource.data.imageUrl is string &&
+        request.resource.data.imageUrl.matches('^https?://.+$') &&
+        request.resource.data.order is number &&
+        request.resource.data.createdAt is string;
+    }
+    
+    // Workshop Images collection
+    match /workshopImages/{documentId} {
+      // Allow read access to authenticated users
+      allow read: if isAuthenticated();
+      // Only admins and moderators can create/update/delete
+      allow create, update, delete: if isAdmin() || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator']);
+      
+      // Validate data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['url', 'createdAt']) &&
+        request.resource.data.url is string &&
+        request.resource.data.url.matches('^https?://.+$') &&
+        request.resource.data.createdAt is string;
+    }
+
+    // User addresses subcollection
+    match /users/{userId}/addresses/{addressId} {
+      // Users can read and write their own addresses
+      allow read, write: if isOwner(userId);
+      // Admins can manage all addresses
+      allow read, write: if isAdmin();
+      // Validate address data
+      allow create: if isOwner(userId) &&
+        request.resource.data.keys().hasAll(['name', 'addressLine1', 'city', 'state', 'pincode', 'phoneNumber']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.addressLine1 is string &&
+        request.resource.data.addressLine1.size() > 0 &&
+        request.resource.data.city is string &&
+        request.resource.data.state is string &&
+        request.resource.data.pincode is string &&
+        request.resource.data.pincode.matches('^[0-9]{6}$') &&
+        request.resource.data.phoneNumber is string &&
+        request.resource.data.phoneNumber.matches('^[0-9]{10}$');
+    }
+    
+    // User data collection
+    match /userData/{userId} {
+      // Users can read and write their own data
+      allow read, write: if isAuthenticated() && isOwner(userId);
+      // Admins can manage all user data
+      allow read, write: if isAdmin();
+      
+      // Nested documents
+      match /{document=**} {
+        allow read, write: if isAuthenticated() && isOwner(userId) || isAdmin();
+      }
+    }
+    
+
+      
+    // User Carts collection - each user has their own cart document
+    match /userCarts/{userId} {
+      // Users can only read their own cart
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create/update their own cart
+      allow create, update: if isOwner(userId) && (
+        // Validate cart items structure
+        request.resource.data.keys().hasAll(['items', 'updatedAt']) &&
+        request.resource.data.items is list &&
+        request.resource.data.updatedAt is string &&
+        // Ensure items have required fields
+        request.resource.data.items.all(item, item is map &&
+          item.keys().hasAll(['id', 'name', 'price', 'quantity']) &&
+          item.quantity is number &&
+          item.quantity > 0 &&
+          item.price is number &&
+          item.price >= 0
+        )
+      );
+      
+      // Users can delete their own cart (clearing it)
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // User Wishlists collection - each user has their own wishlist document
+    match /userWishlists/{userId} {
+      // Users can read their own wishlist, admins can read all
+      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      
+      // Users can create/update their own wishlist
+      allow create, update: if isAuthenticated() && isOwner(userId) && (
+        // Validate the wishlist document structure
+        request.resource.data is map &&
+        request.resource.data.keys().hasAll(['items', 'updatedAt']) &&
+        request.resource.data.updatedAt is string &&
+        request.resource.data.items is list &&
+        // More lenient validation for items to accommodate different structures
+        request.resource.data.items.all(item, item is map && item.keys().hasAny(['id', 'productId']))
+      );
+      
+      // Users can delete their own wishlist, admins can delete any
+      allow delete: if isAuthenticated() && (isAdmin() || isOwner(userId));
+    }
+      
+
+    
+    // Workshop Images collection
+    match /workshopImages/{documentId} {
+      // Allow read access to authenticated users
+      allow read: if isAuthenticated();
+      // Only admins and moderators can create/update/delete
+      allow create, update, delete: if isAdmin() || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator']);
+      
+      // Validate data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['url', 'createdAt']) &&
+        request.resource.data.url is string &&
+        request.resource.data.url.matches('^https?://.+$') &&
+        request.resource.data.createdAt is string;
+    }
+    
+    // Homepage Sections collection
+    match /homepageSections/{document=**} {
+      // Anyone can read homepage sections
+      allow read: if true;
+      // Only admins can create, update, or delete
+      allow create, update, delete: if isAdmin();
+      
+      // Validate data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['title', 'description', 'lastUpdated', 'buttonText', 'buttonLink']) &&
+        request.resource.data.title is string &&
+        request.resource.data.description is string &&
+        request.resource.data.lastUpdated is string &&
+        request.resource.data.buttonText is string &&
+        request.resource.data.buttonLink is string;
+    }
+    
+    // Default deny all other operations
+    // Products collection
+    match /products/{productId} {
+      // Allow public read access to all products
+      allow read: if true;
+      
+      // Only allow admins to create or delete products
+      allow create, delete: if isAdmin();
+      
+      // Allow authenticated users to update stock when placing an order
+      allow update: if isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'updatedAt']) &&
+        request.resource.data.stock is number &&
+        request.resource.data.stock >= 0;
+        
+      // Allow admins to update any field
+      allow update: if isAdmin();
+    }
+
+    // Popups collection
+    match /popups/{documentId} {
+      // Allow public read access to popups
+      allow read: if true;
+      
+      // Only admins can create, update, or delete popups
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Homepage Sections collection
+    match /homepageSections/{documentId} {
+      // Allow public read access to all sections
+      allow read: if true;
+      
+      // Only admins can write to homepage sections
+      allow write: if isAdmin();
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow users to read their own profile
+      allow read: if isOwner(userId);
+      
+      // Allow admins to read any user profile
+      allow read: if isAdmin();
+      
+      // Allow users to create/update their own profile
+      allow create, update: if isOwner(userId) && (
+        // Validate the user document structure
+        request.resource.data is map &&
+        request.resource.data.keys().hasAny(['displayName', 'firstName', 'lastName', 'email', 'phone', 'addresses', 'createdAt']) &&
+        (request.resource.data.displayName == null || request.resource.data.displayName is string) &&
+        (request.resource.data.firstName == null || request.resource.data.firstName is string) &&
+        (request.resource.data.lastName == null || request.resource.data.lastName is string) &&
+        (request.resource.data.email == null || request.resource.data.email is string) &&
+        (request.resource.data.phone == null || request.resource.data.phone is string) &&
+        (request.resource.data.addresses == null || request.resource.data.addresses is list) &&
+        (request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp)
+      );
+    }
+    
+    // Limited Time Offers collection
+    match /limitedTimeOffers/{offerId} {
+      // Allow public read access to active offers
+      allow read: if resource.data.isActive == true;
+      
+      // Allow admins full access
+      allow read, write: if isAdmin();
+      
+      // Validate offer data
+      allow create, update: if isAdmin() && 
+        request.resource.data.keys().hasAll(['title', 'description', 'discountPercentage', 'startDate', 'endDate', 'isActive']) &&
+        request.resource.data.title is string &&
+        request.resource.data.description is string &&
+        request.resource.data.discountPercentage is number &&
+        request.resource.data.discountPercentage > 0 &&
+        request.resource.data.discountPercentage <= 100 &&
+        request.resource.data.startDate is timestamp &&
+        request.resource.data.endDate is timestamp &&
+        request.resource.data.isActive is bool &&
+        request.resource.data.imageUrl is string &&
+        (request.resource.data.endDate == null || request.resource.data.endDate is timestamp) &&
+        (request.resource.data.discount == null || request.resource.data.discount is number) &&
+        (request.resource.data.buttonText == null || request.resource.data.buttonText is string) &&
+        (request.resource.data.buttonLink == null || request.resource.data.buttonLink is string) &&
+        (request.resource.data.secondaryButtonText == null || request.resource.data.secondaryButtonText is string) &&
+        (request.resource.data.secondaryButtonLink == null || request.resource.data.secondaryButtonLink is string);
+    }
+    
+    // Orders collection
+    match /orders/{orderId} {
+      // Allow admins to read all orders, users to read their own
+      allow read: if isAdmin() || 
+        (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      // Allow users to create their own orders with minimal validation
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.orderNumber is string &&
+        request.resource.data.items is list &&
+        request.resource.data.items.size() > 0 &&
+        request.resource.data.shippingAddress is map
+      );
+      
+      // Allow admins full access to update any order
+      allow update: if isAdmin();
+      
+      // Allow users to update their own orders with limited fields
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 
+          'trackingNumber', 
+          'notes', 
+          'updatedAt'
+        ]);
+      
+      // Only admins can delete orders
+      allow delete: if isAdmin();
+      
+      // Subcollections - inherit parent rules
+      match /{document=**} {
+        allow read: if isAdmin() || 
+          (isAuthenticated() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid);
+        allow write: if isAdmin();
+      }
+    }
+    
+    // User orders subcollection
+    match /users/{userId}/orders/{orderId} {
+      // Users can read their own orders
+      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      
+      // Only the system can write to user's orders subcollection
+      allow write: if false;
+      
+      // But allow updates from the main orders collection
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'trackingNumber', 'notes', 'updatedAt'])
+      );
+    }
+    
+    // Default deny all other operations
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "terracottic-server",
+  "version": "1.0.0",
+  "description": "Backend server for Terracottic admin panel",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

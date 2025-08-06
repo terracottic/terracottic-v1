@@ -1,0 +1,114 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sensitive files
+*.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.p8
+*.p7b
+*.p7c
+*.p7s
+*.p12
+*.pem
+*.key
+*.csr
+*.cer
+*.der
+*.crt
+*.p7b
+*.p7c
+*.p7s
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.csr
+*.p7b
+*.p7c
+*.p7s
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.csr
+*.p7b
+*.p7c
+*.p7s
+*.p12
+*.pfx
+
+# Firebase and service account files
+**/serviceAccountKey.json
+**/firebase-service-account.json
+**/firebase-admin-sdk.json
+**/google-credentials.json
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Build directories
+/dist
+/build
+/.next
+/out
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE specific files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Misc
+.cache/
+.vercel
+.next
