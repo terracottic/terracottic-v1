@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { createCanvas } = require('canvas');
+import fs from 'fs';
+import path from 'path';
+import { createCanvas } from 'canvas';
 
 // Create public directory if it doesn't exist
 const publicDir = path.join(__dirname, '..', 'public');
@@ -16,7 +16,7 @@ function generateIcon(size, text) {
   // Background
   ctx.fillStyle = '#1976d2';
   ctx.fillRect(0, 0, size, size);
-  
+
   // Text
   ctx.fillStyle = '#ffffff';
   const fontSize = size / 3;

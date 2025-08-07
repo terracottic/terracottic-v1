@@ -1,8 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import { existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
-const publicDir = path.join(__dirname, '../public');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const publicDir = join(__dirname, '../public');
 const requiredIcons = [
   'android-chrome-192x192.svg',
   'android-chrome-512x512.svg',
@@ -12,13 +16,13 @@ const requiredIcons = [
 ];
 
 // Create public directory if it doesn't exist
-if (!fs.existsSync(publicDir)) {
-  fs.mkdirSync(publicDir, { recursive: true });
+if (!existsSync(publicDir)) {
+  mkdirSync(publicDir, { recursive: true });
   console.log('Created public directory');
 }
 
 // Check which required files are missing
-const missingFiles = requiredIcons.filter(file => !fs.existsSync(path.join(publicDir, file)));
+const missingFiles = requiredIcons.filter(file => !existsSync(join(publicDir, file)));
 
 if (missingFiles.length > 0) {
   console.log('Missing PWA assets, generating them now...');
@@ -36,7 +40,7 @@ if (missingFiles.length > 0) {
 }
 
 // Verify all required files exist after generation
-const stillMissing = requiredIcons.filter(file => !fs.existsSync(path.join(publicDir, file)));
+const stillMissing = requiredIcons.filter(file => !existsSync(join(publicDir, file)));
 if (stillMissing.length > 0) {
   console.error('Still missing required PWA assets:', stillMissing.join(', '));
   process.exit(1);
