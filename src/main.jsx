@@ -3,6 +3,17 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { HelmetProvider } from 'react-helmet-async';
+
+// Ensure we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+// Safe access to window object
+const safeWindow = isBrowser ? window : {};
+
+// Fix for useLayoutEffect SSR warning
+if (!isBrowser) {
+  React.useLayoutEffect = React.useEffect;
+}
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';

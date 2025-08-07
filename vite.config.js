@@ -138,15 +138,17 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
+            // Group React and React DOM together to ensure single instance
+            if (id.includes('react-dom') || id.includes('/react/')) {
+              return 'vendor_react';
+            }
             if (id.includes('exceljs')) return 'vendor_exceljs';
             if (id.includes('date-fns') || id.includes('@mui/x-date-pickers')) return 'vendor_dates';
             if (id.includes('@mui/material') || id.includes('@emotion')) return 'vendor_mui';
             if (id.includes('chart.js') || id.includes('react-chartjs')) return 'vendor_charts';
             if (id.includes('firebase')) return 'vendor_firebase';
-            if (id.includes('react-dom')) return 'vendor_reactdom';
             if (id.includes('react-router-dom')) return 'vendor_router';
             if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) return 'vendor_redux';
-            if (id.includes('react')) return 'vendor_react';
             return 'vendor';
           }
         },
