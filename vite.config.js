@@ -177,13 +177,4 @@ export default defineConfig({
       },
     },
   },
-  optimizeDeps: {
-    include: [
-      'axios',
-      '@stripe/stripe-js',
-      '@mui/x-data-grid',
-      '@mui/x-date-pickers',
-      '@emailjs/browser',
-    ],
-  },
 });
