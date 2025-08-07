@@ -43,99 +43,25 @@ export default defineConfig({
       },
     }),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', '*.{png,svg}'],
-      manifest: {
-        name: 'Terracottic',
-        short_name: 'Terracottic',
-        description: 'Your Terracotta Products Store',
-        theme_color: '#1976d2',
-        background_color: '#ffffff',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          {
-            src: 'android-chrome-192x192.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          },
-          {
-            src: 'android-chrome-512x512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          },
-          {
-            src: 'apple-touch-icon.svg',
-            sizes: '180x180',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          }
-        ],
-        // Ensure PWA works offline
-        scope: '/',
-        orientation: 'portrait',
-        prefer_related_applications: false
-      },
+      // Use minimal configuration since we have our own manifest
+      strategies: 'injectManifest',
+      // Point to our existing manifest file
+      manifest: false, // We'll use the one in public/
+      // Disable all automatic asset handling
+      includeAssets: false,
+      includeManifestIcons: false,
+      injectRegister: false,
+      // Basic service worker configuration
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf}'],
-        // Skip waiting for service worker to activate
-        skipWaiting: true,
-        clientsClaim: true,
-        // Don't cache the root HTML file
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\./,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /\/(assets|images|icons)\/.*\.(png|jpg|jpeg|svg|gif|webp|ico)/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-              },
-            },
-          },
-          // Cache Google Fonts
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'google-fonts-stylesheets',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-        ],
+        // Only cache essential files
+        globPatterns: ['**/*.{js,css,html}'],
+        // Skip all generation
+        skipWaiting: false,
+        clientsClaim: false,
+        cleanupOutdatedCaches: false,
+        sourcemap: false,
+        // Don't precache any assets
+        globIgnores: ['**/*'],
       },
     }),
     viteCompression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
