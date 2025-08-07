@@ -38,8 +38,8 @@ export default defineConfig({
         name: 'Terracottic',
         short_name: 'Terracottic',
         description: 'Your Terracotta Products Store',
-        theme_color: '#8B4513', // Updated to match primary color
-        background_color: '#f5f5f5',
+        theme_color: '#1976d2',
+        background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
         icons: [
@@ -56,26 +56,8 @@ export default defineConfig({
             purpose: 'any maskable'
           },
           {
-            src: 'apple-touch-icon-180x180.svg',
+            src: 'apple-touch-icon.svg',
             sizes: '180x180',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: 'favicon-32x32.svg',
-            sizes: '32x32',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: 'favicon-16x16.svg',
-            sizes: '16x16',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: 'mstile-150x150.svg',
-            sizes: '150x150',
             type: 'image/svg+xml',
             purpose: 'any'
           }
