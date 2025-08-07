@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-swc';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -11,17 +11,11 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   optimizeDeps: {
-    include: [
-      '@emotion/react',
-      '@emotion/styled',
-      '@mui/material',
-      '@mui/icons-material',
-      'axios',
+    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material', 'axios',
       '@stripe/stripe-js',
       '@mui/x-data-grid',
       '@mui/x-date-pickers',
-      '@emailjs/browser',
-    ],
+      '@emailjs/browser',],
     esbuildOptions: {
       // Enable esbuild's tree shaking
       treeShaking: true,
@@ -29,6 +23,9 @@ export default defineConfig({
   },
   plugins: [
     react({
+      fastRefresh: true,
+      tsDecorators: true,
+      devTarget: 'es2020',
       jsxImportSource: '@emotion/react',
       babel: {
         plugins: ['@emotion/babel-plugin'],
@@ -50,39 +47,39 @@ export default defineConfig({
             src: 'android-chrome-192x192.svg',
             sizes: '192x192',
             type: 'image/svg+xml',
-            purpose: 'any maskable',
+            purpose: 'any maskable'
           },
           {
             src: 'android-chrome-512x512.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
-            purpose: 'any maskable',
+            purpose: 'any maskable'
           },
           {
             src: 'apple-touch-icon-180x180.svg',
             sizes: '180x180',
             type: 'image/svg+xml',
-            purpose: 'any',
+            purpose: 'any'
           },
           {
             src: 'favicon-32x32.svg',
             sizes: '32x32',
             type: 'image/svg+xml',
-            purpose: 'any',
+            purpose: 'any'
           },
           {
             src: 'favicon-16x16.svg',
             sizes: '16x16',
             type: 'image/svg+xml',
-            purpose: 'any',
+            purpose: 'any'
           },
           {
             src: 'mstile-150x150.svg',
             sizes: '150x150',
             type: 'image/svg+xml',
-            purpose: 'any',
-          },
-        ],
+            purpose: 'any'
+          }
+        ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf}'],
@@ -172,12 +169,9 @@ export default defineConfig({
           }
         },
         chunkFileNames: (chunkInfo) => {
-          if (chunkInfo.name.startsWith('vendor_')) {
-            const moduleName = chunkInfo.name.split('_')[1];
+          if (chunkInfo.name.includes('node_modules')) {
+            const moduleName = chunkInfo.name.split('node_modules/').pop().split('/')[0];
             return `assets/vendor.${moduleName}.[hash].js`;
-          }
-          if (chunkInfo.name === 'vendor') {
-            return 'assets/vendor.common.[hash].js';
           }
           return 'assets/[name].[hash].js';
         },
@@ -202,4 +196,3 @@ export default defineConfig({
     },
   },
 });
-  
