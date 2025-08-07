@@ -10,11 +10,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
+  optimizeDeps: {
+    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material'],
+    esbuildOptions: {
+      // Enable esbuild's tree shaking
+      treeShaking: true,
+    },
+  },
   plugins: [
     react({
       fastRefresh: true,
       tsDecorators: true,
       devTarget: 'es2020',
+      jsxImportSource: '@emotion/react',
+      babel: {
+        plugins: ['@emotion/babel-plugin'],
+      },
     }),
     VitePWA({
       registerType: 'autoUpdate',
@@ -79,6 +90,10 @@ export default defineConfig({
     reportCompressedSize: false,
     sourcemap: false,
     cssCodeSplit: true,
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     terserOptions: {
       compress: {
         drop_console: true,
