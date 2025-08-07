@@ -12,10 +12,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "optimize-images": "node scripts/optimize-images.mjs",
+    "generate-pwa-assets": "node scripts/generate-pwa-assets-simple.mjs",
     "analyze": "vite build --mode analyze",
     "profile": "cross-env PROFILE=true vite build",
     "test:perf": "lighthouse http://localhost:3000 --view --preset=desktop",
-    "prebuild": "npm run optimize-images"
+    "prebuild": "npm run optimize-images && npm run generate-pwa-assets"
   },
   "dependencies": {
     "@babel/runtime": "^7.27.6",

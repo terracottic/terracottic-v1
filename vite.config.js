@@ -29,24 +29,35 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', '*.{png,svg}'],
       manifest: {
         name: 'Terracottic',
         short_name: 'Terracottic',
         description: 'Your Terracotta Products Store',
-        theme_color: '#ffffff',
+        theme_color: '#1976d2',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
         icons: [
           {
-            src: '/android-chrome-192x192.png',
+            src: 'android-chrome-192x192.svg',
             sizes: '192x192',
-            type: 'image/png',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
           },
           {
-            src: '/android-chrome-512x512.png',
+            src: 'android-chrome-512x512.svg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
           },
-        ],
+          {
+            src: 'apple-touch-icon.svg',
+            sizes: '180x180',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          }
+        ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf}'],
@@ -62,6 +73,17 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200],
+              },
+            },
+          },
+          {
+            urlPattern: /\/(assets|images)\/.*\.(png|jpg|jpeg|svg|gif|webp|ico)/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
             },
           },
