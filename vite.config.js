@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
+  base: '/',
   optimizeDeps: {
     include: [
       '@emotion/react',
@@ -80,17 +81,16 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'dist',
     target: 'esnext',
     minify: 'terser',
+    sourcemap: true,
     chunkSizeWarningLimit: 1000,
     reportCompressedSize: false,
-    sourcemap: false,
     cssCodeSplit: true,
-    // Ensure consistent module resolution
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
-      // Ensure proper resolution of MUI modules
       requireReturnsDefault: 'auto',
     },
     terserOptions: {
@@ -111,8 +111,9 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            // Group React and React DOM together to ensure single instance
-            if (id.includes('react-dom') || id.includes('/react/')) {
+            // Group React and related dependencies
+            if (id.includes('react-dom') || id.includes('/react/') || 
+                id.includes('react-redux') || id.includes('@reduxjs/toolkit')) {
               return 'vendor_react';
             }
             if (id.includes('exceljs')) return 'vendor_exceljs';
@@ -121,7 +122,6 @@ export default defineConfig({
             if (id.includes('chart.js') || id.includes('react-chartjs')) return 'vendor_charts';
             if (id.includes('firebase')) return 'vendor_firebase';
             if (id.includes('react-router-dom')) return 'vendor_router';
-            if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) return 'vendor_redux';
             return 'vendor';
           }
         },

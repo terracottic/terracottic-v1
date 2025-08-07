@@ -1,9 +1,3 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import { HelmetProvider } from 'react-helmet-async';
-
 // Ensure we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
@@ -14,11 +8,19 @@ const safeWindow = isBrowser ? window : {};
 if (!isBrowser) {
   React.useLayoutEffect = React.useEffect;
 }
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { CssBaseline, ThemeProvider } from '@mui/material';
+import { HelmetProvider } from 'react-helmet-async';
+
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import theme from './theme';
 import App from './App';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 import './index.css';
 
 // Performance Monitoring
@@ -32,11 +34,11 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   registerServiceWorker().catch(error => {
     console.error('Error during service worker registration:', error);
   });
-  
+
   // Initialize Workbox for advanced service worker features
   if ('serviceWorker' in navigator && window.workbox !== undefined) {
     const wb = new Workbox('/sw.js');
-    
+
     wb.addEventListener('installed', (event) => {
       if (event.isUpdate) {
         console.log('App updated. Reloading...');
@@ -45,7 +47,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
         console.log('App is ready for offline use.');
       }
     });
-    
+
     wb.register().catch(error => {
       console.error('Workbox registration failed:', error);
     });
@@ -70,6 +72,8 @@ function render(Component) {
                 </NotificationProvider>
               </CurrencyProvider>
             </AuthProvider>
+            <SpeedInsights />
+            <Analytics />
           </HelmetProvider>
         </ThemeProvider>
       </BrowserRouter>
@@ -87,7 +91,7 @@ if (import.meta.env.PROD) {
   reportWebVitals(metric => {
     // Send metrics to your analytics service
     console.log(metric);
-    
+
     // Example: Send to Google Analytics
     if (window.gtag) {
       window.gtag('event', 'web_vitals', {
@@ -103,21 +107,21 @@ if (import.meta.env.PROD) {
 // Handle service worker updates
 if ('serviceWorker' in navigator && window.workbox !== undefined) {
   const wb = new Workbox('/sw.js');
-  
+
   wb.addEventListener('waiting', (event) => {
     // A new service worker has installed, but it can't activate until all tabs are closed
     if (window.confirm('A new version is available! Reload to update?')) {
       wb.addEventListener('controlling', () => {
         window.location.reload();
       });
-      
+
       // Send a message to the waiting service worker to activate
       if (event.sw) {
         event.sw.postMessage({ type: 'SKIP_WAITING' });
       }
     }
   });
-  
+
   wb.register().then(registration => {
     console.log('Service Worker registration completed');
   }).catch(error => {
