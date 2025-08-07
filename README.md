@@ -1,3 +1,4 @@
+```md
 <div align="center">
   <h1>🏺 Terracottic</h1>
   <h3>A Premium E-commerce Platform for Handcrafted Terracotta Products</h3>
@@ -270,4 +271,3 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
   Built with ❤️ by <a href="https://github.com/farhaanthebillionaire" target="_blank">Shaik Mohammed Farhaan</a> & the Terracottic Team
 </p>
 ```
-
