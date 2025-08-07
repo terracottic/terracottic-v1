@@ -11,14 +11,25 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material', 'axios',
+    include: [
+      '@emotion/react',
+      '@emotion/styled',
+      '@mui/material',
+      '@mui/icons-material',
+      '@mui/material/styles',
+      'axios',
       '@stripe/stripe-js',
       '@mui/x-data-grid',
       '@mui/x-date-pickers',
-      '@emailjs/browser',],
+      '@emailjs/browser'
+    ],
     esbuildOptions: {
       // Enable esbuild's tree shaking
       treeShaking: true,
+      // Ensure MUI components are properly bundled
+      define: {
+        global: 'globalThis',
+      },
     },
   },
   plugins: [
@@ -61,10 +72,20 @@ export default defineConfig({
             type: 'image/svg+xml',
             purpose: 'any'
           }
-        ]
+        ],
+        // Ensure PWA works offline
+        scope: '/',
+        orientation: 'portrait',
+        prefer_related_applications: false
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf}'],
+        // Skip waiting for service worker to activate
+        skipWaiting: true,
+        clientsClaim: true,
+        // Don't cache the root HTML file
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\./,
@@ -73,7 +94,7 @@ export default defineConfig({
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
               cacheableResponse: {
                 statuses: [0, 200],
@@ -81,13 +102,36 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\/(assets|images)\/.*\.(png|jpg|jpeg|svg|gif|webp|ico)/,
+            urlPattern: /\/(assets|images|icons)\/.*\.(png|jpg|jpeg|svg|gif|webp|ico)/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images-cache',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+          // Cache Google Fonts
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
               },
             },
           },
@@ -116,9 +160,12 @@ export default defineConfig({
     reportCompressedSize: false,
     sourcemap: false,
     cssCodeSplit: true,
+    // Ensure consistent module resolution
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
+      // Ensure proper resolution of MUI modules
+      requireReturnsDefault: 'auto',
     },
     terserOptions: {
       compress: {
