@@ -11,7 +11,11 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   optimizeDeps: {
-    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material'],
+    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material', 'axios',
+      '@stripe/stripe-js',
+      '@mui/x-data-grid',
+      '@mui/x-date-pickers',
+      '@emailjs/browser',],
     esbuildOptions: {
       // Enable esbuild's tree shaking
       treeShaking: true,
